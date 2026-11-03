@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+const origin='http://127.0.0.1:5173';
+const signIn=await fetch(origin+'/signin-with-chatgpt?return_to=%2F',{redirect:'manual'});
+const cookie=signIn.headers.get('set-cookie').split(';')[0];
+const api=(path,options={})=>fetch(origin+path,{...options,headers:{cookie,...options.headers}});
+assert.equal((await fetch(origin+'/api/workspace')).status,401);
+let response=await api('/api/workspace');assert.equal(response.status,200);const initial=await response.json();
+const data={books:[{id:'smoke-book',title:'Smoke test',chapters:[]}],projects:[],sessions:[],lectures:[],annotations:[],active:[]};
+response=await api('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify({data,revision:initial.revision})});assert.equal(response.status,200);const {revision}=await response.json();
+assert.equal((await (await api('/api/workspace')).json()).data.books[0].title,'Smoke test');
+assert.equal((await api('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data,revision:initial.revision})})).status,409);
+assert.equal((await api('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json',Origin:'https://example.com'},body:JSON.stringify({data,revision})})).status,403);
+const form=new FormData();form.append('file',new File(['%PDF-1.4\n% smoke test\n'],'test.pdf',{type:'application/pdf'}));
+response=await api('/api/files',{method:'POST',body:form});assert.equal(response.status,200);const file=await response.json();
+response=await api('/api/files/'+file.path);assert.equal(response.status,200);assert.equal(await response.text(),'%PDF-1.4\n% smoke test\n');
+response=await api('/api/files/'+file.path,{headers:{Range:'bytes=0-3'}});assert.equal(response.status,206);assert.equal(await response.text(),'%PDF');
+assert.equal((await fetch(origin+'/api/files/'+file.path)).status,401);
+const badForm=new FormData();badForm.append('file',new File(['hi'],'test.html'));assert.equal((await api('/api/files',{method:'POST',body:badForm})).status,400);
+// Restore the local preview workspace. These tests never target production.
+assert.equal((await api('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:initial.data||{books:[],projects:[],sessions:[],lectures:[],annotations:[],active:[]},revision})})).status,200);
+console.log('PASS: authentication, save/read, stale-write protection, origin protection, private upload/download, PDF byte ranges, file-type restriction');
