@@ -6,7 +6,7 @@ A private reading and research workspace, deployed on Sites using React, Vinext,
 
 https://doorway-reading-shoaib.krish-shoaib55.chatgpt.site
 
-Sign in with the ChatGPT account that owns the Site. Upload a book PDF from **Add book**, then choose **Read** and write your reason for opening it. The right-edge dock adds up to six books, chapter notes, solutions and research annotations. Use **End session** to record reading duration. Uploads support PDF, DOCX, DOC, TeX and TXT, up to 512 MB per file (chunked uploads).
+Sign in with the ChatGPT account that owns the Site. Upload a book PDF from **Add book**, then choose **Read** and write your reason for opening it. The book at the right edge opens a reading companion with books, chapter notes and research tools. Hover to open, move away to close, or pin it. Tap it on touch devices. Use **End session** to record reading duration. Uploads support PDF, DOCX, DOC, TeX and TXT, up to 512 MB per file (chunked uploads).
 
 ## Development
 
@@ -42,3 +42,10 @@ The original implementation notes are preserved in `ORIGINAL-README.md`.
 Run `node --test tests/core.test.mjs tests/components.test.mjs` and `node tests/api-smoke.mjs` with the local preview running. For real-book rendering, set `DOORWAY_TEST_BOOKS` to a local Books folder and run `node tests/pdf-stress.mjs`. Test books are never committed.
 
 Verification for this release: 16 geometry/component/save tests passed; private API smoke tests passed; six actual PDFs (101–1,448 pages, including a 101 MB upload) loaded concurrently and 60 sampled pages rendered successfully using PDF.js 6.3.289. Corrupt PDF rejection and a synthetic mixed-size 1,000-page PDF passed. Open Library returned a real ISBN match with a cover and correctly returned no match for a fictional title. Browser interaction QA was blocked by the browser tool permission policy, even after user approval; native rendering and simulated component tests do not prove Safari scrolling performance.
+
+
+## Candlelit reading
+
+Workspaces default to a dark, warm reading atmosphere with soft page edges, a pointer-following pool of light, subtle firelight and drifting embers. Nearby text remains visible. Reading uses native scrolling and the existing bounded PDF renderer; pointer lighting updates CSS without rerendering PDF pages. The reading companion opens like a book and supports touch, keyboard focus, Escape and pinning. It contains controls for candlelight, motion and light size; settings are saved per workspace. Reduced-motion preferences disable the ambient and opening animations. Motion also pauses while the page is hidden. Focus follows the pointer or selected book, not gaze. The fire is a stylized CSS effect, without audio or video.
+
+This update passes 18 automated geometry, component and saving tests plus TypeScript and the production build. Browser visual and frame-rate QA remains blocked by the saved browser permission policy. These checks do not establish a frame-rate guarantee on Safari, mobile or lower-memory devices.
