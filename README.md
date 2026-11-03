@@ -72,3 +72,6 @@ Validation includes format and metadata checks on first, middle and last section
 
 
 PDF text selection uses the PDF text layer. The reader captures selections on adjacent rendered pages as page-relative highlight rectangles, with a message when a page has no selectable text. Image-only scanned pages need OCR before text can be selected; OCR is not included. Browser-origin permission restrictions prevented end-to-end mouse and touch verification.
+
+
+For scanned or otherwise unselectable PDF pages, use **This volume → Mark an area** and drag over the passage. Enter the question and, optionally, a transcription or comment; the marked rectangle is saved with the book and remains aligned when zooming. This does not perform OCR or make the image text selectable. Press Escape or choose Cancel to leave marking mode.
