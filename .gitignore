@@ -47,3 +47,6 @@ yarn-error.log*
 # Generated PDF worker, copied from the installed renderer
 /public/pdf.worker.min.mjs
 /public/pdf-assets/
+
+# Decoded room artwork (tracked encoded source lives in assets/room)
+/public/room-assets/

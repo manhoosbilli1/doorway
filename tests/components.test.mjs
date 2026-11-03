@@ -6,13 +6,13 @@ import {mkdir} from 'node:fs/promises';
 import React from 'react';
 import TestRenderer,{act} from 'react-test-renderer';
 import {pathToFileURL} from 'node:url';
-let ReaderPane,Workspace,ReadingRitual;
+let ReaderPane,Workspace,ReadingRitual,RoomLibrary,BookPanel,useRoomReturn;
 globalThis.IS_REACT_ACT_ENVIRONMENT=true;
 globalThis.window=new EventTarget();window.devicePixelRatio=2;window.getSelection=()=>null;
 globalThis.document=new EventTarget();document.hidden=false;
 globalThis.requestAnimationFrame=fn=>setTimeout(fn,0);globalThis.cancelAnimationFrame=clearTimeout;
 globalThis.ResizeObserver=class{constructor(callback){this.callback=callback}observe(){this.callback([{contentRect:{width:500,height:700}}])}disconnect(){}};
-before(async()=>{await mkdir('.sites-runtime/tests',{recursive:true});await build({stdin:{contents:"export {default as ReaderPane} from './app/reader/ReaderPane.jsx';export {default as Workspace} from './app/reader/Workspace.jsx';export {default as ReadingRitual} from './app/reader/ReadingRitual.jsx';",resolveDir:process.cwd(),loader:'jsx'},bundle:true,platform:'node',format:'esm',packages:'external',external:['react','react/*'],outfile:'.sites-runtime/tests/components.mjs',loader:{'.css':'empty'},plugins:[{name:'mock-pdf-and-network',setup(b){b.onResolve({filter:/\.css$/},()=>({path:'empty',namespace:'empty'}));b.onLoad({filter:/.*/,namespace:'empty'},()=>({contents:''}));b.onResolve({filter:/^react-pdf$/},()=>({path:'pdf-mock',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:`import React,{useEffect} from 'react';export const pdfjs={GlobalWorkerOptions:{}};export function Document({file,onLoadSuccess,children}){useEffect(()=>{onLoadSuccess({numPages:5000,getPage:async()=>({getViewport:()=>({width:600,height:800})})})},[file]);return React.createElement('document-mock',null,children)}export function Page({pageNumber,onLoadSuccess}){useEffect(()=>{onLoadSuccess({getViewport:()=>({width:600,height:pageNumber%7===0?400:800})})},[pageNumber]);return React.createElement('canvas-mock',{'data-page':pageNumber})}` }));b.onResolve({filter:/\/store$/},()=>({path:'store-mock',namespace:'store'}));b.onLoad({filter:/.*/,namespace:'store'},()=>({contents:"export async function resolveFile(record){return record?.url||'/api/files/test'}"}))}}]});({ReaderPane,Workspace,ReadingRitual}=await import(pathToFileURL(process.cwd()+'/.sites-runtime/tests/components.mjs').href))});
+before(async()=>{await mkdir('.sites-runtime/tests',{recursive:true});await build({stdin:{contents:"export {default as ReaderPane} from './app/reader/ReaderPane.jsx';export {default as Workspace} from './app/reader/Workspace.jsx';export {default as ReadingRitual} from './app/reader/ReadingRitual.jsx';export {default as RoomLibrary} from './app/room/RoomLibrary.jsx';export {default as BookPanel} from './app/room/BookPanel.jsx';export {default as useRoomReturn} from './app/room/useRoomReturn.js';",resolveDir:process.cwd(),loader:'jsx'},bundle:true,platform:'node',format:'esm',packages:'external',external:['react','react/*'],outfile:'.sites-runtime/tests/components.mjs',loader:{'.css':'empty'},plugins:[{name:'mock-pdf-and-network',setup(b){b.onResolve({filter:/\.css$/},()=>({path:'empty',namespace:'empty'}));b.onLoad({filter:/.*/,namespace:'empty'},()=>({contents:''}));b.onResolve({filter:/^react-pdf$/},()=>({path:'pdf-mock',namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:`import React,{useEffect} from 'react';export const pdfjs={GlobalWorkerOptions:{}};export function Document({file,onLoadSuccess,children}){useEffect(()=>{onLoadSuccess({numPages:5000,getPage:async()=>({getViewport:()=>({width:600,height:800})})})},[file]);return React.createElement('document-mock',null,children)}export function Page({pageNumber,onLoadSuccess}){useEffect(()=>{onLoadSuccess({getViewport:()=>({width:600,height:pageNumber%7===0?400:800})})},[pageNumber]);return React.createElement('canvas-mock',{'data-page':pageNumber})}` }));b.onResolve({filter:/\/store$/},()=>({path:'store-mock',namespace:'store'}));b.onLoad({filter:/.*/,namespace:'store'},()=>({contents:"export async function resolveFile(record){return record?.url||'/api/files/test'}"}))}}]});({ReaderPane,Workspace,ReadingRitual,RoomLibrary,BookPanel,useRoomReturn}=await import(pathToFileURL(process.cwd()+'/.sites-runtime/tests/components.mjs').href))});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function nodeMock(element){if(element.props?.className?.includes('virtual-viewport'))return {scrollTop:0};return {}}
 const find=(tree,name)=>tree.root.findAll(n=>n.type==='button'&&n.props['aria-label']===name)[0];
@@ -51,11 +51,11 @@ test('switching workspaces cannot save the old pane position into the new desk',
 
 test('reading companion opens by touch, exposes settings, and closes without leaving controls active',async()=>{
  let tree;const settings=[];await act(async()=>{tree=TestRenderer.create(React.createElement(ReadingRitual,{ambient:true,motion:true,aperture:48,onSetting:v=>settings.push(v),onAdd(){},onNotes(){},onTool(){},onBack(){}}),{createNodeMock:nodeMock})});
- assert.equal(tree.root.findByProps({id:'ritual-pages'}).props.inert,true);
- await act(async()=>find(tree,'Open reading companion').props.onClick());assert.equal(tree.root.findByProps({id:'ritual-pages'}).props.inert,false);
+ assert.equal(tree.root.findByProps({className:'ritual-pages'}).props.inert,true);
+ await act(async()=>find(tree,'Open reading companion').props.onClick());assert.equal(tree.root.findByProps({className:'ritual-pages'}).props.inert,false);
  await act(async()=>tree.root.findByProps({'aria-label':'Pool of light size'}).props.onChange({target:{value:'65'}}));assert.deepEqual(settings[0],{aperture:65});
- await act(async()=>find(tree,'Keep companion open').props.onClick());assert.equal(find(tree,'Keep companion open').props['aria-pressed'],true);
- await act(async()=>find(tree,'Close reading companion').props.onClick());assert.equal(tree.root.findByProps({id:'ritual-pages'}).props.inert,true);await act(async()=>tree.unmount());
+ await act(async()=>find(tree,'Keep reading companion open').props.onClick());assert.equal(find(tree,'Keep reading companion open').props['aria-pressed'],true);
+ await act(async()=>find(tree,'Close reading companion').props.onClick());assert.equal(tree.root.findByProps({className:'ritual-pages'}).props.inert,true);await act(async()=>tree.unmount());
 });
 test('pointer lighting coalesces updates without remounting PDF pages',async()=>{
  const writes=[];let tree;await act(async()=>{tree=TestRenderer.create(React.createElement(ReaderPane,{book:{id:'light',title:'Book',pdf:{url:'light.pdf'}},onPosition(){},onSticky(){},onHighlight(){}}),{createNodeMock:e=>e.type==='section'?{getBoundingClientRect:()=>({left:0,top:0,width:500,height:700}),style:{setProperty:(...v)=>writes.push(v)}}:nodeMock(e)});await sleep(20)});
@@ -63,4 +63,19 @@ test('pointer lighting coalesces updates without remounting PDF pages',async()=>
  await act(async()=>{for(let i=0;i<30;i++)pane.props.onPointerMove({pointerType:'mouse',clientX:250,clientY:350});await sleep(10)});
  assert.deepEqual(writes,[['--light-x','50%'],['--light-y','50%']]);assert.equal(tree.root.findAllByType('canvas-mock')[0],pages[0]);
  await act(async()=>pane.props.onPointerMove({pointerType:'touch',clientX:10,clientY:10}));assert.equal(writes.length,2);await act(async()=>tree.unmount());
+});
+
+test('the oak shelf selects real books and opens the selected title through the reading callback',async()=>{
+ let tree;const reads=[];await act(async()=>{tree=TestRenderer.create(React.createElement(RoomLibrary,{books:[{id:'a',title:'A first book',author:'One',level:1},{id:'b',title:'A second book',author:'Two',level:2}],filter:'library',onRead:id=>reads.push(id),onEdit(){},onChapters(){},onAdd(){},onResume(){},hasWorkspace:false,minutes:70}))});
+ await act(async()=>find(tree,'Select A second book').props.onClick());assert.ok(tree.root.findByProps({'aria-label':'Details for A second book'}));const open=tree.root.findAll(n=>n.type==='button'&&n.props.className==='btn primary')[0];await act(async()=>open.props.onClick());assert.deepEqual(reads,['b']);await act(async()=>tree.unmount());
+});
+test('book panels have distinct control IDs and close after the pointer leaves',async()=>{
+ let tree;await act(async()=>{tree=TestRenderer.create(React.createElement('main',null,React.createElement(BookPanel,{title:'Atlas'},'A'),React.createElement(BookPanel,{title:'Housekeeping'},'B')),{createNodeMock:()=>({contains:()=>false})})});
+ const buttons=tree.root.findAll(n=>n.type==='button'&&n.props['aria-controls']);assert.notEqual(buttons[0].props['aria-controls'],buttons[1].props['aria-controls']);
+ const panel=tree.root.findAllByType('aside')[0];await act(async()=>{panel.props.onFocus({target:{getAttribute:()=>'book-panel-id'}});find(tree,'Open atlas').props.onClick()});assert.equal(find(tree,'Open atlas').props['aria-expanded'],true);await act(async()=>find(tree,'Close atlas').props.onClick());await act(async()=>panel.props.onPointerEnter({pointerType:'mouse'}));assert.equal(find(tree,'Open atlas').props['aria-expanded'],true);
+ await act(async()=>{panel.props.onPointerLeave();await sleep(650)});assert.equal(find(tree,'Open atlas').props['aria-expanded'],false);await act(async()=>tree.unmount());
+});
+test('return to the room commits a close once and respects reduced motion',async()=>{
+ let api,tree;const events=[];window.matchMedia=()=>({matches:true});function Harness(){api=useRoomReturn(()=>events.push('room'));return null}
+ await act(async()=>{tree=TestRenderer.create(React.createElement(Harness))});await act(async()=>{api.begin(()=>events.push('closed'),'Book');api.begin(()=>events.push('duplicate'),'Book');await sleep(15)});assert.deepEqual(events,['closed','room']);assert.equal(api.transition.phase,'returning');await act(async()=>{await sleep(90)});assert.equal(api.transition,null);await act(async()=>tree.unmount());delete window.matchMedia;
 });
