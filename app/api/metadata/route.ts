@@ -1,5 +1,5 @@
 import { getChatGPTUser } from '../../chatgpt-auth';
-import {matchScore,mapBook,cleanTitle,isbnFrom} from '../../lib/metadata';
+import {chooseMetadataCandidate,mapBook,cleanTitle,isbnFrom} from '../../lib/metadata';
 export async function POST(request:Request){
  const user=await getChatGPTUser();if(!user)return Response.json({error:'Sign in required'},{status:401});
  if(request.headers.get('origin')&&request.headers.get('origin')!==new URL(request.url).origin)return new Response('Forbidden',{status:403});
@@ -10,8 +10,8 @@ export async function POST(request:Request){
  try{
  const response=await fetch(url,{headers:{'User-Agent':'Doorway/0.2 (personal reading workspace; metadata lookup)'},signal:AbortSignal.timeout(7000)});
  if(!response.ok)return Response.json({book:null,unavailable:true});const payload:any=await response.json();
- const candidates=Array.isArray(payload.docs)?payload.docs:[];const doc=candidates.sort((a:any,b:any)=>matchScore(title,b.title)-matchScore(title,a.title))[0];
- if(!doc||(!isbn&&matchScore(title,doc.title)<.68))return Response.json({book:null});
+ const doc=chooseMetadataCandidate(payload.docs,title,isbn);
+ if(!doc)return Response.json({book:null});
  return Response.json({book:mapBook(doc)},{headers:{'Cache-Control':'private,max-age=3600'}});
  }catch{return Response.json({book:null,unavailable:true})}
 }

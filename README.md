@@ -58,3 +58,17 @@ The library is now an illustrated oak room with an animated rocking chair, reade
 Closing a book or ending a session plays a hand-and-cover gesture followed by a return to the room. Closing the currently reading book also logs its active session; returning to the room preserves other open books and saved positions. Repeated closing gestures are guarded. Reduced-motion preferences skip the closing animation and pause room motion; motion can also be paused manually. The artwork is generated raster art with lightweight CSS animation, not a rendered 3D environment or a video. There is no fireplace audio.
 
 Artwork is stored as encoded WebP source under assets/room and decoded during predev/prebuild by scripts/copy-room-assets.mjs. The three optimized assets total approximately 410 KiB. Their original prompts are recorded in the delivered doorway-artwork.md. Browser visual and frame-rate checks remain unavailable under the saved browser permission policy.
+
+
+## Shelves, notes, bookmarks and folder import
+
+Choose **Import a folder** from the shelf or Housekeeping, then select a folder containing PDFs and EPUBs. Import runs sequentially in the signed-in browser, including subfolders. It reports errors, skips matching names and sizes, checks existing records conservatively, and pauses on a sync error. Files larger than 512 MiB and formats other than PDF/EPUB are not imported. Keep the tab open; you can stop after the current book and resume later. The application cannot choose the local folder without the browser's file-picker action. PDFs and EPUBs remain private in R2, not GitHub.
+
+Shelves group by genre and each spine opens its book. The intention prompt is non-blocking and saved with the session. PDF page bookmarks appear as folded corners and can be jumped to from This volume. EPUBs are read section by section; progress and bookmarks therefore refer to sections, not printed page numbers. EPUB images are bounded per section, active content is sanitized, and simultaneous large EPUB readers are queued to limit memory. EPUB rendering supports bookmarks and linked notes; PDF-specific passage highlights and movable sticky overlays are not available in EPUBs.
+
+Writing desk provides in-place formatted editing backed by Markdown, with standalone notes or notes associated with a book and page. It supports common headings, lists, emphasis, quotes and code; complex Obsidian plugins and advanced Markdown are outside the current editor. Notes can be downloaded as .md files. Firelight follows only the last-focused book.
+
+Validation includes format and metadata checks on first, middle and last sections of all 19 local EPUBs, 60 PDF.js renders across six real PDFs, simulated component tests, API tests and a production build. Browser interaction, animation and performance testing remains blocked by the saved browser permission policy.
+
+
+PDF text selection uses the PDF text layer. The reader captures selections on adjacent rendered pages as page-relative highlight rectangles, with a message when a page has no selectable text. Image-only scanned pages need OCR before text can be selected; OCR is not included. Browser-origin permission restrictions prevented end-to-end mouse and touch verification.

@@ -1,4 +1,4 @@
-const arrays=['books','projects','lectures','sessions','annotations','links','uploads'];
+const arrays=['books','projects','lectures','sessions','annotations','links','uploads','bookmarks','notes'];
 const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
 export function normalizeData(input={}){
  if(!object(input))input={};const data={...input};for(const key of arrays)data[key]=Array.isArray(input[key])?input[key].filter(object):[];

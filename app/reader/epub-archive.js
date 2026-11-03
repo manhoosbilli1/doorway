@@ -1,0 +1,26 @@
+import JSZip from 'jszip';
+const XML='application/xml';const MAX_XML=8*1024*1024,MAX_IMAGE=8*1024*1024,MAX_IMAGES=16,MAX_SECTION_IMAGES=24*1024*1024;
+function parse(text,type=XML){if(/<!ENTITY\s/i.test(text))throw Error('The EPUB contains unsupported XML entities.');const doc=new DOMParser().parseFromString(text,type);if(type!=='text/html'&&doc.getElementsByTagName('parsererror').length)throw Error('The EPUB contains invalid XML.');return doc}
+function nodes(doc,name){return Array.from(doc.getElementsByTagNameNS('*',name))}
+function pathOf(base,href){const url=new URL(String(href||''),'https://epub.invalid/'+base);if(url.origin!=='https://epub.invalid')return '';try{return decodeURIComponent(url.pathname.replace(/^\//,''))}catch{return ''}}
+function entry(zip,name){return name&&(zip.file(name)||zip.file(name.replace(/ /g,'%20')))}
+async function extract(file,kind='string',max=MAX_XML){if(!file)throw Error('The EPUB is missing a required file.');const size=file._data?.uncompressedSize;if(Number.isFinite(size)&&size>max)throw Error('An EPUB section is too large to open safely.');const out=await file.async(kind);if((typeof out==='string'?out.length:out.size||out.byteLength||0)>max)throw Error('An EPUB section is too large to open safely.');return out}
+export async function openEpubArchive(buffer){
+ const zip=await JSZip.loadAsync(buffer,{checkCRC32:false});if(Object.keys(zip.files).length>20000)throw Error('This EPUB contains too many files.');const container=parse(await extract(entry(zip,'META-INF/container.xml')));const packagePath=nodes(container,'rootfile')[0]?.getAttribute('full-path');if(!packagePath)throw Error('This file is not a valid EPUB.');const opf=parse(await extract(entry(zip,packagePath)));
+ const metadata=nodes(opf,'metadata')[0];const value=name=>nodes(metadata||opf,name).map(n=>n.textContent.trim()).find(Boolean)||'';
+ const manifest=new Map();for(const item of nodes(opf,'item')){const id=item.getAttribute('id'),href=item.getAttribute('href'),location=pathOf(packagePath,href);if(id&&location)manifest.set(id,{path:location,type:item.getAttribute('media-type')||'',properties:item.getAttribute('properties')||''})}
+ const sections=nodes(opf,'itemref').map(item=>manifest.get(item.getAttribute('idref'))).filter(item=>item&&/xhtml|html/i.test(item.type));if(!sections.length)throw Error('This EPUB has no readable sections.');
+ const coverId=nodes(opf,'meta').find(n=>n.getAttribute('name')==='cover')?.getAttribute('content');const cover=[...manifest.values()].find(x=>x.properties.split(/\s+/).includes('cover-image'))||manifest.get(coverId)||null;
+ return {zip,sections,cover,title:value('title'),author:value('creator'),identifier:value('identifier')};
+}
+export async function epubCover(archive){if(!archive.cover||!/^image\/(png|jpeg|webp)$/i.test(archive.cover.type))return null;return extract(entry(archive.zip,archive.cover.path),'blob',MAX_IMAGE)}
+export async function epubSection(archive,index){
+ const section=archive.sections[index];if(!section)throw Error('This section does not exist.');const text=await extract(entry(archive.zip,section.path));
+ // Parse in a non-DOM HTML parser so external resources cannot load while sanitizing.
+ const {parse:parseHtml,serialize}=await import('parse5');const tree=parseHtml(text);const denied=new Set(['script','style','link','iframe','object','embed','form','base','svg','math','video','audio','source','template']);const urls=[];let count=0,imageBytes=0;
+ const walk=async node=>{if(!node.childNodes)return;const kept=[];for(const child of node.childNodes){const tag=child.tagName?.toLowerCase();if(tag&&denied.has(tag))continue;if(tag){const attrs=child.attrs||[];const attr=name=>attrs.find(a=>a.name.toLowerCase()===name)?.value||'';const source=attr('src'),href=attr('href');const safeAttrs=new Set(['id','class','title','alt','width','height','colspan','rowspan','scope','start','reversed','dir','lang']);child.attrs=attrs.filter(a=>safeAttrs.has(a.name.toLowerCase()));
+ if(tag==='img'){const internal=pathOf(section.path,source),file=entry(archive.zip,internal);if(!file||!internal||!/\.(png|jpe?g|webp|gif)$/i.test(internal)||count++>=MAX_IMAGES)continue;try{const size=file._data?.uncompressedSize||0;if(imageBytes+size>MAX_SECTION_IMAGES)continue;const blob=await extract(file,'blob',MAX_IMAGE);imageBytes+=blob.size;if(imageBytes>MAX_SECTION_IMAGES)continue;const ext=internal.split('.').pop().toLowerCase();const mime=ext==='png'?'image/png':ext==='gif'?'image/gif':ext==='webp'?'image/webp':'image/jpeg';const url=URL.createObjectURL(new Blob([blob],{type:mime}));urls.push(url);child.attrs.push({name:'src',value:url})}catch{continue}}
+ if(tag==='a'&&/^https?:\/\//i.test(href))child.attrs.push({name:'href',value:href},{name:'target',value:'_blank'},{name:'rel',value:'noopener noreferrer'});
+ }await walk(child);kept.push(child)}node.childNodes=kept};
+ try{await walk(tree);const find=node=>node.tagName==='body'?node:(node.childNodes||[]).map(find).find(Boolean);const body=find(tree);if(!body)throw Error('This EPUB section has no readable content.');const {default:DOMPurify}=await import('dompurify');const html=DOMPurify.sanitize(serialize(body),{FORBID_TAGS:[...denied],FORBID_ATTR:['style','srcset'],ADD_URI_SAFE_ATTR:['src']});return {html,urls}}catch(e){urls.forEach(u=>URL.revokeObjectURL(u));throw e}
+}

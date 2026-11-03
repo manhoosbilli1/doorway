@@ -14,7 +14,7 @@ export async function POST(request:Request){
   if(length>12*1024*1024)return Response.json({error:'Use the current uploader for files over 12 MB'},{status:413});
   let form;try{form=await request.formData()}catch{return new Response('Invalid upload',{status:400})}const file=form.get('file');if(!(file instanceof File))return new Response('Choose a file',{status:400});name=file.name;mime=file.type;body=file.stream();
  }
- if(name.length>500||! /\.(pdf|docx?|tex|txt|png|jpe?g)$/i.test(name))return Response.json({error:'Supported files: PDF, DOCX, DOC, TeX and TXT'},{status:400});
+ if(name.length>500||! /\.(pdf|epub|docx?|tex|txt|png|jpe?g)$/i.test(name))return Response.json({error:'Supported files: PDF, EPUB, DOCX, DOC, TeX and TXT'},{status:400});
  const id=crypto.randomUUID();await env.BUCKET!.put(`${u.userId}/${id}`,body,{httpMetadata:{contentType:mime},customMetadata:{name}});
  return Response.json({path:id,name,mime},{headers:{'Cache-Control':'no-store'}});
 }
