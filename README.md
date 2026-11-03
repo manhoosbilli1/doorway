@@ -6,7 +6,7 @@ A private reading and research workspace, deployed on Sites using React, Vinext,
 
 https://doorway-reading-shoaib.krish-shoaib55.chatgpt.site
 
-Sign in with the ChatGPT account that owns the Site. Upload a book PDF from **Add book**, then choose **Read** and write your reason for opening it. The right-edge dock adds up to six books, chapter notes, solutions and research annotations. Use **End session** to record reading duration. Uploads support PDF, DOCX, DOC, TeX and TXT, up to 100 MB per file.
+Sign in with the ChatGPT account that owns the Site. Upload a book PDF from **Add book**, then choose **Read** and write your reason for opening it. The right-edge dock adds up to six books, chapter notes, solutions and research annotations. Use **End session** to record reading duration. Uploads support PDF, DOCX, DOC, TeX and TXT, up to 512 MB per file (chunked uploads).
 
 ## Development
 
@@ -33,6 +33,12 @@ D1 stores workspace records with a revision number; stale writes receive HTTP 40
 
 Library categories, domains and levels, progress, covers, ratings, mandatory completion reflection, reading intentions and logs, multi-book reading, chapter notes, original/corrected solution comparison, question/passage/comment annotations, lecture references and reflections, and research journals are included.
 
-Remaining limits inherited from the first version: saved passages do not draw permanent PDF highlight overlays; the magnifier is page zoom; TeX previews show source rather than compiled mathematics; legacy DOC needs conversion for preview; lecture links open externally; completion uses a 3,000-word approximation of ten pages. Concurrent edits are detected, not automatically merged. Very large PDFs or six readers can use substantial memory. The first release should be treated as an initial usable version, not a claim that every item in the original brief is finished.
+Selected answers now draw saved page overlays. Movable sticky notes use normalized page coordinates. Named workspaces preserve books, fractional scroll positions, zoom, layout, writing and attached notes. PDF rendering is virtualized and canvas resolution bounded. Metadata comes from PDF information, ISBN/title lookup through Open Library, or a first-page cover fallback. Remaining limits: the magnifier is page zoom; TeX previews show source rather than compiled mathematics; legacy DOC needs conversion for preview; lecture links open externally; completion uses a 3,000-word approximation of ten pages. Concurrent edits are detected, not automatically merged. Very large PDFs or six readers can use substantial memory. The first release should be treated as an initial usable version, not a claim that every item in the original brief is finished.
 
 The original implementation notes are preserved in `ORIGINAL-README.md`.
+
+## Reader verification
+
+Run `node --test tests/core.test.mjs tests/components.test.mjs` and `node tests/api-smoke.mjs` with the local preview running. For real-book rendering, set `DOORWAY_TEST_BOOKS` to a local Books folder and run `node tests/pdf-stress.mjs`. Test books are never committed.
+
+Verification for this release: 16 geometry/component/save tests passed; private API smoke tests passed; six actual PDFs (101–1,448 pages, including a 101 MB upload) loaded concurrently and 60 sampled pages rendered successfully using PDF.js 6.3.289. Corrupt PDF rejection and a synthetic mixed-size 1,000-page PDF passed. Open Library returned a real ISBN match with a cover and correctly returned no match for a fictional title. Browser interaction QA was blocked by the browser tool permission policy, even after user approval; native rendering and simulated component tests do not prove Safari scrolling performance.
