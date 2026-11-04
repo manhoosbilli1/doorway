@@ -5,9 +5,9 @@ const cookie=signIn.headers.get('set-cookie').split(';')[0];
 const api=(path,options={})=>fetch(origin+path,{...options,headers:{cookie,...options.headers}});
 assert.equal((await fetch(origin+'/api/workspace')).status,401);
 let response=await api('/api/workspace');assert.equal(response.status,200);const initial=await response.json();
-const data={books:[{id:'smoke-book',title:'Smoke test',chapters:[]}],projects:[],sessions:[],lectures:[],annotations:[],bookmarks:[{id:'bm',bookId:'smoke-book',page:7}],notes:[{id:'note',bookId:'smoke-book',page:7,markdown:'**hello**'}],active:[]};
+const data={books:[{id:'smoke-book',title:'Smoke test',chapters:[]}],projects:[],sessions:[],lectures:[],annotations:[],bookmarks:[{id:'bm',bookId:'smoke-book',page:7}],notes:[{id:'note',bookId:'smoke-book',page:7,markdown:'**hello**'}],active:[],shelves:{sections:[{id:'personal',title:'By the fire'}],placements:{'book:smoke-book':{sectionId:'personal',order:0}},cabinetPage:2,table:{id:'smoke-book',key:'book:smoke-book',title:'Smoke test'}},ui:{openNoteId:'note'}};
 response=await api('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify({data,revision:initial.revision})});assert.equal(response.status,200);const {revision}=await response.json();
-const saved=await (await api('/api/workspace')).json();assert.equal(saved.data.books[0].title,'Smoke test');assert.equal(saved.data.bookmarks[0].page,7);assert.equal(saved.data.notes[0].markdown,'**hello**');
+const saved=await (await api('/api/workspace')).json();assert.equal(saved.data.books[0].title,'Smoke test');assert.equal(saved.data.bookmarks[0].page,7);assert.equal(saved.data.notes[0].markdown,'**hello**');assert.deepEqual(saved.data.shelves,data.shelves);assert.equal(saved.data.ui.openNoteId,'note');
 assert.equal((await api('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data,revision:initial.revision})})).status,409);
 assert.equal((await api('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json',Origin:'https://example.com'},body:JSON.stringify({data,revision})})).status,403);
 const form=new FormData();form.append('file',new File(['%PDF-1.4\n% smoke test\n'],'test.pdf',{type:'application/pdf'}));
@@ -20,4 +20,4 @@ const epubForm=new FormData();epubForm.append('file',new File(['PK test'],'test.
 const badForm=new FormData();badForm.append('file',new File(['hi'],'test.html'));assert.equal((await api('/api/files',{method:'POST',body:badForm})).status,400);
 // Restore the local preview workspace. These tests never target production.
 assert.equal((await api('/api/workspace',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:initial.data||{books:[],projects:[],sessions:[],lectures:[],annotations:[],active:[]},revision})})).status,200);
-console.log('PASS: authentication, save/read, stale-write protection, origin protection, private upload/download, PDF byte ranges, file-type restriction');
+console.log('PASS: authentication, shelves/notebook/table persistence, save/read, stale-write protection, origin protection, private upload/download, PDF byte ranges, file-type restriction');

@@ -3,7 +3,7 @@ const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
 export function normalizeData(input={}){
  if(!object(input))input={};const data={...input};for(const key of arrays)data[key]=Array.isArray(input[key])?input[key].filter(object):[];
  data.books=data.books.filter(b=>typeof b.id==='string'&&b.id).map(b=>({...b,title:String(b.title||'Untitled book'),chapters:Array.isArray(b.chapters)?b.chapters.filter(object):[]}));
- const valid=new Set(data.books.map(b=>b.id));
+ const valid=new Set(data.books.filter(b=>b.status!=='dropped').map(b=>b.id));
  const normalize=(w,i)=>({...w,id:typeof w.id==='string'&&w.id?w.id:`workspace-${i}`,name:String(w.name||'Reading desk'),layout:['grid','columns','tabs'].includes(w.layout)?w.layout:'grid',bookIds:[...new Set(Array.isArray(w.bookIds)?w.bookIds:[])].filter(id=>valid.has(id)).slice(0,6),panes:object(w.panes)?w.panes:{},notes:typeof w.notes==='string'?w.notes:'',files:Array.isArray(w.files)?w.files.filter(object):[]});
  const source=Array.isArray(input.workspaces)?input.workspaces.filter(object):[];
  data.workspaces=(source.length?source:[{id:'default',name:'Reading desk',bookIds:Array.isArray(input.active)?input.active:[],panes:{}}]).map(normalize);

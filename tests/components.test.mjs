@@ -67,7 +67,7 @@ test('pointer lighting coalesces updates without remounting PDF pages',async()=>
 
 test('the oak shelf groups books and opens the selected title directly',async()=>{
  let tree;const reads=[];await act(async()=>{tree=TestRenderer.create(React.createElement(RoomLibrary,{books:[{id:'a',title:'Calculus',author:'One',level:1},{id:'b',title:'RFID Handbook',author:'Two',level:2}],filter:'library',onRead:id=>reads.push(id),onEdit(){},onChapters(){},onAdd(){},onResume(){},hasWorkspace:false,minutes:70}))});
- assert.ok(tree.root.findByProps({'aria-label':'Mathematics bookshelf, scroll sideways for more books'}));assert.ok(tree.root.findByProps({'aria-label':'Electrical Engineering bookshelf, scroll sideways for more books'}));await act(async()=>find(tree,'Open RFID Handbook').props.onClick());assert.deepEqual(reads,['b']);await act(async()=>tree.unmount());
+ assert.ok(tree.root.findByProps({'aria-label':'Mathematics shelf'}));assert.ok(tree.root.findByProps({'aria-label':'Electrical Engineering shelf'}));await act(async()=>find(tree,'Open RFID Handbook').props.onClick({currentTarget:{getBoundingClientRect:()=>({left:10,top:20,width:20,height:90})}}));assert.deepEqual(reads,['b']);await act(async()=>tree.unmount());
 });
 test('book panels have distinct control IDs and close after the pointer leaves',async()=>{
  let tree;await act(async()=>{tree=TestRenderer.create(React.createElement('main',null,React.createElement(BookPanel,{title:'Atlas'},'A'),React.createElement(BookPanel,{title:'Housekeeping'},'B')),{createNodeMock:()=>({contains:()=>false})})});
@@ -94,6 +94,7 @@ test('folder import skips repeated source files and preserves existing book fiel
  const added=[],patched=[],busy=[];const existing={id:'old',title:'Calculus',metadataSource:'Filename',author:'',rating:5,pdf:{name:'calculus.pdf',path:'old'}};let tree;
  await act(async()=>{tree=TestRenderer.create(React.createElement(BulkImport,{books:[existing],onUpload:async f=>({name:f.name,path:f.name}),onAdd:b=>added.push(b),onPatch:(id,v)=>patched.push([id,v]),onBusy:v=>busy.push(v),onClose(){}}))});
  const files=[{name:'calculus.pdf',size:5},{name:'RFID handbook.pdf',size:10},{name:'RFID handbook.pdf',size:10},{name:'sample.epub',size:20},{name:'ignore.zip',size:1}];const input=tree.root.findByProps({'aria-label':'Choose Books folder'});
+ await act(async()=>tree.root.findByProps({type:'checkbox'}).props.onChange({target:{checked:true}}));
  await act(async()=>{input.props.onChange({target:{files,value:'x'}});await sleep(20)});assert.equal(added.length,2);assert.deepEqual(busy,[true,false]);assert.equal(existing.rating,5);assert.equal(existing.sourceSize,undefined);assert.ok(patched.some(([id,v])=>id==='old'&&v.sourceSize===5));assert.ok(added.some(b=>b.genre==='Electrical Engineering'));await act(async()=>tree.unmount());
 });
 
@@ -133,4 +134,28 @@ test('a cancelled or tiny drag does not save a marked passage',async()=>{
 });
 test('Escape exits area marking without creating a highlight',async()=>{
  let tree,saves=0;await act(async()=>{tree=TestRenderer.create(React.createElement(ReaderPane,{book:{id:'a',title:'Book',pdf:{url:'a.pdf'}},onPosition(){},onSticky(){},onHighlight(){saves++}}),{createNodeMock:nodeMock});await sleep(20)});await act(async()=>find(tree,'Mark a passage area').props.onClick());assert.ok(tree.root.findByProps({'aria-label':'Draw a highlight on page 1'}));const e=new Event('keydown',{cancelable:true});Object.defineProperty(e,'key',{value:'Escape'});await act(async()=>window.dispatchEvent(e));assert.equal(tree.root.findAllByProps({'aria-label':'Draw a highlight on page 1'}).length,0);assert.equal(saves,0);await act(async()=>tree.unmount());
+});
+
+test('the fitted cabinet uses all ten physical compartments and keeps excess books on another page',async()=>{
+ const books=Array.from({length:161},(_,i)=>({id:String(i),title:'Volume '+String(i).padStart(3,'0'),genre:'Books'}));let tree;const updates=[];
+ await act(async()=>{tree=TestRenderer.create(React.createElement(RoomLibrary,{books,allData:{books,notes:[]},onUpdate:fn=>updates.push(fn),onRead(){},minutes:0}))});
+ assert.equal(tree.root.findAll(n=>n.props.className?.startsWith('cabinet-compartment ')).length,10);assert.equal(tree.root.findAll(n=>n.type==='button'&&n.props['aria-label']?.startsWith('Open Volume')).length,160);
+ await act(async()=>find(tree,'Next cabinet').props.onClick());assert.equal(tree.root.findAll(n=>n.type==='button'&&n.props['aria-label']?.startsWith('Open Volume')).length,1);assert.equal(updates[0]({}).shelves.cabinetPage,1);await act(async()=>tree.unmount());
+});
+test('a notebook opens the selected saved note without creating a duplicate',async()=>{
+ let current={books:[],notes:[{id:'saved',title:'Notebook',markdown:'Existing thought'}]},tree;await act(async()=>{tree=TestRenderer.create(React.createElement(NotesDesk,{data:current,target:{noteId:'saved',token:'open'},onUpdate:fn=>{current=fn(current)}}));await sleep(10)});
+ assert.equal(tree.root.findByProps({'aria-label':'Note title'}).props.value,'Notebook');assert.equal(current.notes.length,1);assert.equal(current.notes[0].markdown,'Existing thought');await act(async()=>tree.unmount());
+});
+test('the shelf organizer moves books with a keyboard-friendly control',async()=>{
+ let current={books:[{id:'a',title:'A',genre:'One'},{id:'b',title:'B',genre:'Two'}]},tree;const props=()=>({books:current.books,allData:current,onUpdate:fn=>{current=fn(current)},onRead(){},minutes:0});await act(async()=>{tree=TestRenderer.create(React.createElement(RoomLibrary,props()))});
+ const arrange=tree.root.findAll(n=>n.type==='button'&&n.children?.includes('Arrange'))[0];await act(async()=>arrange.props.onClick());await act(async()=>find(tree,'Arrange A').props.onClick({}));await act(async()=>tree.root.findByProps({'aria-label':'Move selected volume to section'}).props.onChange({target:{value:'genre:Two'}}));assert.equal(current.shelves.placements['book:a'].sectionId,'genre:Two');assert.equal(current.books[0].genre,'One');await act(async()=>tree.unmount());
+});
+test('skipping a retrieval commits exactly once and clears all pending animation timers',async()=>{
+ let api,tree,count=0;function Harness(){api=useRoomReturn(()=>{});return null}await act(async()=>{tree=TestRenderer.create(React.createElement(Harness))});await act(async()=>api.beginOpen(()=>count++,'Book',{x:12,y:30}));assert.equal(api.transition.phase,'rising');await act(async()=>{api.skip();api.skip()});assert.equal(count,1);assert.equal(api.transition,null);await act(async()=>{await sleep(500)});assert.equal(api.transition,null);assert.equal(count,1);await act(async()=>tree.unmount());
+});
+test('turning room motion off skips retrieval without delaying access',async()=>{
+ let api,tree,count=0;function Harness(){api=useRoomReturn(()=>{},{motion:false});return null}await act(async()=>{tree=TestRenderer.create(React.createElement(Harness))});await act(async()=>{api.beginOpen(()=>count++,'Book');await sleep(10)});assert.equal(count,1);assert.equal(api.transition.phase,'entering');await act(async()=>tree.unmount());
+});
+test('reimport skips books already dropped and avoids metadata requests unless requested',async()=>{
+ let uploads=0,patches=0,tree;await act(async()=>{tree=TestRenderer.create(React.createElement(BulkImport,{books:[{id:'a',status:'dropped',pdf:{name:'old.pdf'},sourceSize:5}],sync:'saved',onUpload:async()=>{uploads++},onAdd(){},onPatch(){patches++},onClose(){}}))});await act(async()=>{tree.root.findByProps({'aria-label':'Choose book files'}).props.onChange({target:{files:[{name:'old.pdf',size:5}],value:''}});await sleep(10)});assert.equal(uploads,0);assert.equal(patches,0);await act(async()=>tree.unmount());
 });

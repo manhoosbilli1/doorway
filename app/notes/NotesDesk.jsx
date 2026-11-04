@@ -2,10 +2,11 @@
 import React,{useState,useEffect,useRef,lazy,Suspense} from 'react';
 import {Plus,Download,FileText,ArrowLeft} from 'lucide-react';
 const MarkdownEditor=lazy(()=>import('./MarkdownEditor'));
-export default function NotesDesk({data,onUpdate,target,workspace,onWorkspaceNotes,compact=false}){
+export default function NotesDesk({data,onUpdate,target,workspace,onWorkspaceNotes,onSelectNote,compact=false}){
  const [selected,setSelected]=useState(null);const seen=useRef(null);const notes=data.notes||[];const note=notes.find(n=>n.id===selected);const legacy=selected==='workspace';
  const make=(bookId='',page='')=>{const id=crypto.randomUUID();onUpdate(d=>({...d,notes:[...(d.notes||[]),{id,title:'Untitled note',markdown:'',bookId,page:page||'',createdAt:new Date().toISOString()}]}));setSelected(id)};
- useEffect(()=>{if(target?.token&&seen.current!==target.token){seen.current=target.token;make(target.bookId,target.page)}},[target?.token]);
+ useEffect(()=>{if(target?.token&&seen.current!==target.token){seen.current=target.token;if(target.noteId)setSelected(target.noteId);else make(target.bookId,target.page)}},[target?.token]);
+ useEffect(()=>{if(selected&&selected!=='workspace')onSelectNote?.(selected)},[selected]);
  const patch=change=>onUpdate(d=>({...d,notes:(d.notes||[]).map(n=>n.id===selected?{...n,...change,updatedAt:new Date().toISOString()}:n)}));
  const download=()=>{const text=legacy?workspace.notes:note?.markdown||'';const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=(legacy?'workspace-notes':note?.title||'note').replace(/[^\w .-]/g,'_')+'.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
  return <div className={'notes-desk '+(compact?'compact':'')}>
