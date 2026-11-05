@@ -1,0 +1,14 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {Worker} from 'node:worker_threads';
+import {mkdir,writeFile,readdir,readFile} from 'node:fs/promises';
+import {pathToFileURL} from 'node:url';
+import JSZip from 'jszip';
+test('background EPUB metadata parses a real archive without loading content images',async()=>{
+ await mkdir('.sites-runtime/tests',{recursive:true});await build({entryPoints:['app/reader/epub-metadata.worker.js'],bundle:true,platform:'browser',format:'esm',outfile:'.sites-runtime/tests/epub-worker.mjs'});
+ const path=process.cwd()+'/.sites-runtime/tests/epub-worker.mjs';await writeFile('.sites-runtime/tests/epub-worker-node.mjs',`import {parentPort} from 'node:worker_threads';globalThis.importScripts=()=>{};globalThis.self={postMessage:v=>parentPort.postMessage(v),importScripts:globalThis.importScripts};await import(${JSON.stringify(pathToFileURL(path).href)});parentPort.on('message',data=>self.onmessage({data}));`);
+ const run=async buffer=>{const worker=new Worker(pathToFileURL(process.cwd()+'/.sites-runtime/tests/epub-worker-node.mjs'));try{return await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('EPUB worker stalled')),10000);worker.on('message',data=>{if(data?.type!=='doorway-epub-metadata')return;clearTimeout(timer);resolve(data.error?{error:data.error}:data.result)});worker.once('error',error=>{clearTimeout(timer);reject(error)});worker.postMessage(new Blob([buffer]))})}finally{await worker.terminate()}};
+ const zip=new JSZip();zip.file('META-INF/container.xml','<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="book.opf"/></rootfiles></container>');zip.file('book.opf','<package xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Worker title</dc:title><dc:creator>Writer</dc:creator></metadata><manifest><item id="one" href="one.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="one"/></spine></package>');zip.file('one.xhtml','<html><body>Text</body></html>');const result=await run(await zip.generateAsync({type:'uint8array'}));assert.ok(!result.error,result.error);assert.equal(result.title,'Worker title');assert.equal(result.pages,1);assert.equal(result.author,'Writer');assert.ok((await run(new Uint8Array([1,2,3]))).error);
+ const directory=process.env.DOORWAY_TEST_BOOKS;if(directory){const walk=async root=>{const all=[];for(const ent of await readdir(root,{withFileTypes:true})){if(ent.isDirectory())all.push(...await walk(root+'/'+ent.name));else if(/\.epub$/i.test(ent.name))all.push(root+'/'+ent.name)}return all};const books=await walk(directory);for(const file of books){const metadata=await run(await readFile(file));assert.ok(!metadata.error,metadata.error);assert.ok(metadata.pages>0)}assert.ok(books.length>0)}
+});

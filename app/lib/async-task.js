@@ -1,0 +1,6 @@
+export function boundedTask(run,{signal,timeout=30000,label='Operation'}={}){
+ const controller=new AbortController();let timer,onAbort;
+ const stopped=new Promise((_,reject)=>{onAbort=()=>{const error=signal?.reason instanceof Error?signal.reason:new DOMException('Cancelled','AbortError');controller.abort(error);reject(error)};if(signal?.aborted){onAbort();return}signal?.addEventListener('abort',onAbort,{once:true});timer=setTimeout(()=>{const error=new Error(label+' timed out. You can retry it.');error.name='TimeoutError';controller.abort(error);reject(error)},timeout)});
+ return Promise.race([stopped,Promise.resolve().then(()=>{if(controller.signal.aborted)throw controller.signal.reason;return run(controller.signal)})]).finally(()=>{clearTimeout(timer);signal?.removeEventListener('abort',onAbort)});
+}
+export async function requestJSON(url,options={},limits={}){return boundedTask(async signal=>{const response=await fetch(url,{...options,signal});let body;try{body=await response.json()}catch{if(response.ok)throw Error('The server returned an incomplete response. Try again.')};if(!response.ok){const error=new Error(body?.error||(response.status===401?'Sign in again to continue.':'Request failed ('+response.status+'). Please retry.'));error.status=response.status;throw error}return body},{...limits,signal:limits.signal||options.signal})}

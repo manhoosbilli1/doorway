@@ -8,8 +8,8 @@ export default function useRoomReturn(onReturn,{motion=true}={}){
  const skip=useCallback(()=>{const action=pending.current;pending.current=null;try{action?.()}finally{finish()}},[finish]);
  const begin=useCallback((action,title)=>{if(busy.current)return false;busy.current=true;const reduced=!motionRef.current||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;const commit=()=>{try{action?.()}finally{latest.current()}};pending.current=commit;setTransition({title,phase:'closing'});timers.current.push(setTimeout(()=>{pending.current=null;try{commit();setTransition({title,phase:'returning'})}catch(e){finish();throw e}},reduced?0:720));timers.current.push(setTimeout(finish,reduced?80:1900));return true},[finish]);
  const beginOpen=useCallback((action,title,origin)=>{if(busy.current)return false;busy.current=true;const reduced=!motionRef.current||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;pending.current=action;const state={title,origin};setTransition({...state,phase:reduced?'opening':'rising'});
- const descent=!reduced&&origin?.y<30?600:0;
- if(!reduced)for(const [delay,phase] of [[450,'walking'],[1550,'reaching'],...(descent?[[2150,'descending']]:[]),[2150+descent,'carrying'],[3250+descent,'seated'],[3700+descent,'opening']])timers.current.push(setTimeout(()=>setTransition({...state,phase}),delay));
- timers.current.push(setTimeout(()=>{pending.current=null;try{action?.();setTransition({...state,phase:'entering'})}catch(e){finish();throw e}},reduced?0:4400+descent));timers.current.push(setTimeout(finish,reduced?80:5050+descent));return true},[finish]);
+ const descent=!reduced&&origin?.y<30?500:0;
+ if(!reduced)for(const [delay,phase] of [[300,'walking'],[1300,'reaching'],...(descent?[[1800,'descending']]:[]),[1800+descent,'carrying'],[2800+descent,'seated'],[3150+descent,'opening']])timers.current.push(setTimeout(()=>setTransition({...state,phase}),delay));
+ timers.current.push(setTimeout(()=>{pending.current=null;try{action?.();setTransition({...state,phase:'entering'})}catch(e){finish();throw e}},reduced?0:3700+descent));timers.current.push(setTimeout(finish,reduced?80:4250+descent));return true},[finish]);
  return {transition,begin,beginOpen,skip};
 }
