@@ -45,3 +45,13 @@ export function dropLibraryBook(data,id,reason){
  return {...data,books:data.books.map(b=>b.id===id?{...b,status:'dropped',dropReason:reason.trim()}:b),active:(data.active||[]).filter(k=>k!==id),workspaces:(data.workspaces||[]).map(w=>({...w,bookIds:w.bookIds.filter(k=>k!==id),focusedBookId:w.focusedBookId===id?null:w.focusedBookId})),shelves:{...data.shelves,table:data.shelves?.table?.id===id?null:data.shelves?.table}};
 }
 export function spineColor(key){let hash=0;for(const ch of key)hash=(hash*31+ch.charCodeAt(0))|0;return ['#503128','#353e32','#4b392b','#2d363b','#523b2c','#42303a'][Math.abs(hash)%6]}
+
+// Freeze existing order before metadata or new imports can change title sorting.
+export function stabilizeShelves(data){
+ const entries=shelfEntries(data),old=data.shelves?.placements||{};
+ if(entries.every(e=>old[e.key]))return data;
+ const sections=shelfSections(data),placements={...old};
+ for(const section of sections){let order=Math.max(-1,...section.items.filter(e=>old[e.key]).map(e=>Number(old[e.key].order)||0))+1;for(const item of section.items)if(!old[item.key])placements[item.key]={sectionId:section.id,order:order++}}
+ return {...data,shelves:{...data.shelves,sections:sections.map(({id,title})=>({id,title})),placements}};
+}
+export function spinePose(key){let hash=2166136261;for(const c of key)hash=Math.imul(hash^c.charCodeAt(0),16777619)>>>0;return {tilt:hash%11===0?(hash%2?5:-5):(hash%5-2)*.45,lift:hash%9===0?.35:0,height:84+hash%13,horizontal:hash%7===0}}

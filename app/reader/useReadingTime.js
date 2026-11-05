@@ -1,0 +1,13 @@
+'use client';
+import {useEffect,useRef} from 'react';
+import {activeMilliseconds,splitActiveTime,IDLE_MS} from '../lib/reading-time';
+export default function useReadingTime({book,sessionId,enabled,paused,onUpdate}){
+ const props=useRef({book,sessionId,paused,onUpdate});props.current={book,sessionId,paused,onUpdate};
+ useEffect(()=>{if(!enabled||!book?.id)return;let last=Date.now(),input=last,visible=!document.hidden,focused=document.hasFocus?.()??true,pending=0;const ids=new Map(),totals=new Map();
+ const flush=()=>{const now=Date.now(),from=last,ms=activeMilliseconds({from:last,to:now,lastInput:input,visible,focused,paused:props.current.paused});last=now;if(!ms)return;const slices=splitActiveTime(from,ms);props.current.onUpdate(data=>{let records=[...(data.readingActivity||[])];for(const slice of slices){if(!ids.has(slice.day))ids.set(slice.day,crypto.randomUUID());const id=ids.get(slice.day);totals.set(slice.day,(totals.get(slice.day)||0)+slice.seconds);const old=records.find(r=>r.id===id),record={id,bookId:book.id,bookTitle:book.title,genre:book.genre||book.domain||'Uncategorized',sessionId:props.current.sessionId,startedAt:old?.startedAt||slice.at,endedAt:new Date(now).toISOString(),day:slice.day,seconds:totals.get(slice.day)};records=old?records.map(r=>r.id===id?record:r):[...records,record]}return {...data,readingActivity:records}})};
+ const activity=e=>{if(e.target?.closest?.('input,textarea,select,[contenteditable="true"]')&&!e.target.closest('.reader-pane'))return;if(e.type==='scroll'||e.type==='pointermove'){const now=Date.now();if(now-pending<800)return;pending=now}if(Date.now()-input>IDLE_MS)flush();input=Date.now()};
+ const visibility=()=>{flush();visible=!document.hidden;last=Date.now();if(visible)input=last};const focus=()=>{flush();focused=true;input=last=Date.now()};const blur=()=>{flush();focused=false};const hide=()=>{flush();visible=false};const interval=setInterval(flush,5000);
+ for(const name of ['pointerdown','pointermove','keydown','scroll','touchstart'])window.addEventListener(name,activity,{capture:true,passive:true});document.addEventListener('visibilitychange',visibility);window.addEventListener('focus',focus);window.addEventListener('blur',blur);window.addEventListener('pagehide',hide);
+ return()=>{flush();clearInterval(interval);for(const name of ['pointerdown','pointermove','keydown','scroll','touchstart'])window.removeEventListener(name,activity,true);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('focus',focus);window.removeEventListener('blur',blur);window.removeEventListener('pagehide',hide)};
+ },[enabled,book?.id,paused]);
+}

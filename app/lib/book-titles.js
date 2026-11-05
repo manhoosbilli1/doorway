@@ -1,0 +1,1 @@
+export function cleanBookTitle(value){return String(value||'').replace(/\s*[([{]?\s*(?:www\.)?\bz[\s_-]*lib(?:rary)?\b(?:\.[a-z]{2,10})?\s*[)\]}]?/gi,'').replace(/\.(pdf|epub)$/i,'').replace(/^\s*[:–—_|-]+\s*|\s*[-–—_|:]+\s*$/g,'').replace(/\s+/g,' ').trim()||'Untitled book'}
